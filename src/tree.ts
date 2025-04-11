@@ -4,7 +4,6 @@ export interface Path {
   complit: boolean;
   p: Point;
   next: Path[] | null;
-  processed?: Boundary[];
 }
 
 export type searchOption = { [key: string]: any };
@@ -195,23 +194,23 @@ export class PathTree {
     return null;
   }
 
-  findProcessedInsidePath(path: number[]): Boundary[] | null {
-    // Validate that the first index represents the root.
-    if (path.length === 0 || path[0] !== 0) {
-      return null;
-    }
-    let processed: Boundary[] = this.tree.processed ? this.tree.processed : [];
-    let current: Path = this.tree;
-    // Starting at index 1 since index 0 is the root.
-    for (let i = 1; i < path.length; i++) {
-      if (!current.next || !Array.isArray(current.next)) return null;
+  // findProcessedInsidePath(path: number[]): Boundary[] | null {
+  //   // Validate that the first index represents the root.
+  //   if (path.length === 0 || path[0] !== 0) {
+  //     return null;
+  //   }
+  //   let processed: Boundary[] = this.tree.processed ? this.tree.processed : [];
+  //   let current: Path = this.tree;
+  //   // Starting at index 1 since index 0 is the root.
+  //   for (let i = 1; i < path.length; i++) {
+  //     if (!current.next || !Array.isArray(current.next)) return null;
 
-      const childIndex = path[i];
-      if (childIndex < 0 || childIndex >= current.next.length) return null;
-      current = current.next[childIndex];
+  //     const childIndex = path[i];
+  //     if (childIndex < 0 || childIndex >= current.next.length) return null;
+  //     current = current.next[childIndex];
 
-      if (current.processed) processed = current.processed;
-    }
-    return processed;
-  }
+  //     if (current.processed) processed = current.processed;
+  //   }
+  //   return processed;
+  // }
 }

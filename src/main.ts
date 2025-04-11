@@ -45,7 +45,7 @@ const collisions = new Collisions([
 // }
 
 const to: Point = { x: 100, y: 100 };
-const from: Point = { x: 850, y: 1000 };
+const from: Point = { x: 1200, y: 1000 };
 const inflate = { width: 100, height: 100 };
 
 const canvas = document.getElementById("main") as HTMLCanvasElement;
@@ -83,20 +83,9 @@ interface FinalPath {
   let tree = new PathTree(from);
   let pathToContinue: number[] | null;
   pathToContinue = tree.findPathBy({ complit: false }) as number[];
-  let processedObjects: Boundary[] = [];
   let elToCountinue: Path;
-  let counter = 0;
   do {
-    counter++;
     elToCountinue = tree.openPath(pathToContinue) as Path;
-    console.log("Processedsd", elToCountinue.processed);
-
-    console.log("el", elToCountinue);
-    console.log(pathToContinue);
-    processedObjects = tree.findProcessedInsidePath(
-      pathToContinue
-    ) as Boundary[];
-    console.log("processedObjects", processedObjects);
 
     if (elToCountinue?.next === null) continue;
     drawLine(elToCountinue.p, to, "purple");
@@ -105,13 +94,14 @@ interface FinalPath {
       collisions.boundaries,
       { p1: elToCountinue.p, p2: to },
       inflate,
-      processedObjects
+      tree,
+      pathToContinue
     );
 
     if (elToCountinue && elToCountinue.next) {
-      elToCountinue.next = elToCountinue.next.concat(processColRes.path);
+      elToCountinue.next = elToCountinue.next.concat(processColRes);
     }
-    elToCountinue.processed = processColRes.processedObj;
+
     elToCountinue.complit = true;
 
     pathToContinue = tree.findPathBy({ complit: false });
@@ -189,7 +179,9 @@ interface FinalPath {
         path.p[j],
         path.p[j + 1],
         lineColorByPlace[i] ? lineColorByPlace[i] : "white",
-        i - (finalPath.length - 6) * -1
+        // "white",
+        // i - (finalPath.length - 6) * -1
+        1
       );
     }
   }
