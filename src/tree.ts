@@ -1,4 +1,4 @@
-import { Boundary, Point } from "./collisions";
+import { Point } from "./collisions";
 
 export interface Path {
   complit: boolean;
@@ -15,7 +15,9 @@ export class PathTree {
     this.tree = { p: startingPoint, complit, next: [] };
   }
   /**
-   * Helper function to compare two values. It handles arrays by checking their content.
+   * Helper function to compare two values. It handles value by checking their content
+   * also if it's Object object it will check only params of b are equal to a, and drop a params which is not
+   * inside b.
    */
   static isEqual(a: any, b: any): boolean {
     // Check for strict equality first.
@@ -47,16 +49,10 @@ export class PathTree {
       return false;
     }
 
-    // Compare object keys.
-    const keysA = Object.keys(a);
     const keysB = Object.keys(b);
 
-    if (keysA.length !== keysB.length) {
-      return false;
-    }
-
     // Check if every key in a exists in b and is deeply equal.
-    for (const key of keysA) {
+    for (const key of keysB) {
       if (!b.hasOwnProperty(key) || !PathTree.isEqual(a[key], b[key])) {
         return false;
       }
@@ -174,6 +170,12 @@ export class PathTree {
     return current;
   }
 
+  /**
+   * Searches for a node matching the search criteria within a specified path in the tree.
+   * @param path An array of indices representing the path to search in.
+   * @param search The search criteria to match against nodes.
+   * @returns The first matching node found in the path, or null if no match is found.
+   */
   findInsidePath(path: number[], search: Partial<Path>): Path | null {
     // Validate that the first index represents the root.
     if (path.length === 0 || path[0] !== 0) {

@@ -1,12 +1,9 @@
-import { Boundary, Collisions, CollisionType, Point } from "./collisions";
-import { Path, PathTree } from "./tree";
-import { Vector2 } from "./vector2";
+import { Boundary, Collisions, Point } from "./collisions";
 
 document.querySelector<HTMLDivElement>(
   "#app"
-)!.innerHTML = `<canvas id="main" width="2000" height="1800"></canvas>`;
+)!.innerHTML = `<canvas id="main" width="2000" height="1800"></canvas><button id="ClrBtn">Clr</button>`;
 
-// console.log(document.getElementById("main"));
 const lineColorByPlace = ["green", "blue", "yellow", "orange", "orange", "red"];
 
 export function drawLine(
@@ -34,24 +31,29 @@ export function drawArc(p: Point, c: string = "red", r: number = 10) {
 
 const collisions = new Collisions([
   new Boundary(500, 500, 400, 200),
-  new Boundary(200, 450, 200, 100),
+  new Boundary(210, 450, 200, 100),
   new Boundary(120, 300, 200, 10),
 ]);
 
-// function decimalToHexString(number: number): string {
-//   let res = number.toString(16).toUpperCase();
-
-//   return res.length <= 8 ? "#" + "0".repeat(8 - res.length) + res : "#FFFFFFFF";
-// }
-
 const to: Point = { x: 100, y: 100 };
-const from: Point = { x: 1200, y: 1000 };
+const from: Point = { x: 900, y: 1000 };
 const inflate = { width: 100, height: 100 };
 
 const canvas = document.getElementById("main") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 
-function drawStart() {
+// State for drawing rectangles
+let isDrawing = false;
+let startX = 0;
+let startY = 0;
+let currentX = 0;
+let currentY = 0;
+
+export function redrawAll() {
+  // Clear canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw start/end points and existing boundaries (adapted from original drawStart)
   ctx.strokeStyle = "yellow";
   ctx.beginPath();
   ctx.arc(from.x, from.y, 100, 0, 2 * Math.PI);
@@ -71,118 +73,99 @@ function drawStart() {
       el.height + inflate.height
     );
   });
-}
 
-interface FinalPath {
-  p: Point[];
-  len: number;
-}
-
-(function main() {
-  drawStart();
-  let tree = new PathTree(from);
-  let pathToContinue: number[] | null;
-  pathToContinue = tree.findPathBy({ complit: false }) as number[];
-  let elToCountinue: Path;
-  do {
-    elToCountinue = tree.openPath(pathToContinue) as Path;
-
-    if (elToCountinue?.next === null) continue;
-    drawLine(elToCountinue.p, to, "purple");
-
-    let processColRes = Collisions.processCollisions(
-      collisions.boundaries,
-      { p1: elToCountinue.p, p2: to },
-      inflate,
-      tree,
-      pathToContinue
-    );
-
-    if (elToCountinue && elToCountinue.next) {
-      elToCountinue.next = elToCountinue.next.concat(processColRes);
-    }
-
-    elToCountinue.complit = true;
-
-    pathToContinue = tree.findPathBy({ complit: false });
-  } while (pathToContinue);
-
-  // Path optimization
-  const finalPath: FinalPath[] = [];
-
-  while (true) {
-    const pathToFinis = tree.findPathBy({ next: null });
-    if (!pathToFinis) break;
-
-    const localPath = { p: [from], len: 0 };
-    for (let i = 1; i < pathToFinis!.length; i++) {
-      const el = tree.openPath(pathToFinis!.slice(0, i) as number[]) as Path;
-      let nextEl: Path = tree.openPath(
-        pathToFinis!.slice(0, i + 1) as number[]
-      ) as Path;
-
-      for (let j = i + 1; j < pathToFinis.length; j++) {
-        const possiblyNext = tree.openPath(
-          pathToFinis.slice(0, j + 1) as number[]
-        ) as Path;
-        const coll = Collisions.findCollisionsOnVector(
-          collisions.boundaries,
-          { p1: el.p, p2: possiblyNext.p },
-          inflate
-        );
-        if (!coll) {
-          nextEl = possiblyNext;
-          continue;
-        }
-        let collInStart: Boundary[] = [];
-        let collInEnd: Boundary[] = [];
-        let isCollInMiddle = false;
-        coll.sort((a, b) => a.len - b.len);
-        for (const collEl of coll) {
-          if (Collisions.isCollInMiddle(collEl)) {
-            isCollInMiddle = true;
-            break;
-          }
-          if (Collisions.isCollInStart(collEl)) {
-            collInStart.push(collEl.b);
-          } else {
-            collInEnd.push(collEl.b);
-          }
-        }
-        if (isCollInMiddle) break;
-
-        if (
-          collInStart.some((el) =>
-            Collisions.isBounderyInsideArray(el, collInEnd)
-          )
-        )
-          break;
-        nextEl = possiblyNext;
-      }
-
-      localPath.p.push(nextEl.p);
-      localPath.len += Math.sqrt(
-        (nextEl.p.x - el.p.x) ** 2 + (nextEl.p.y - el.p.y) ** 2
-      );
-    }
-    tree.openPath(pathToFinis)!.next = [];
-    if (finalPath.some((el) => el.len === localPath.len)) continue;
-    finalPath.push(localPath);
+  // Draw the temporary rectangle if drawing
+  if (isDrawing) {
+    ctx.strokeStyle = "grey"; // Temporary rectangle color
+    ctx.lineWidth = 1;
+    const rectWidth = currentX - startX;
+    const rectHeight = currentY - startY;
+    ctx.strokeRect(startX, startY, rectWidth, rectHeight);
+    // Restore default line width if changed - assuming drawLine handles this correctly elsewhere if needed
   }
+}
 
-  finalPath.sort((a, b) => a.len - b.len);
+// Function to recalculate and draw the path
+function recalculateAndDrawPath() {
+  // Path calculation and drawing logic (adapted from original main IIFE)
+  const pathVector = { p1: from, p2: to };
+  // Ensure collisions object and its boundaries are accessible
+  if (!collisions || !collisions.boundaries) {
+    console.error("Collisions or boundaries not initialized!");
+    return;
+  }
+  const tree = Collisions.findAllWays(
+    pathVector,
+    collisions.boundaries,
+    inflate
+  );
+  const optimizedPath = Collisions.optimizeWays(
+    tree,
+    pathVector,
+    collisions.boundaries,
+    inflate
+  );
 
-  for (let i = finalPath.length - 1; i >= 0; i--) {
-    const path = finalPath[i];
+  // Draw the new optimized path
+  for (let i = optimizedPath.length - 1; i >= 0; i--) {
+    const path = optimizedPath[i];
     for (let j = 0; j < path.p.length - 1; j++) {
+      // Ensure drawLine is accessible
       drawLine(
         path.p[j],
         path.p[j + 1],
         lineColorByPlace[i] ? lineColorByPlace[i] : "white",
-        // "white",
-        // i - (finalPath.length - 6) * -1
         1
       );
     }
   }
-})();
+}
+
+// Event Listeners
+canvas.addEventListener("mousedown", (e) => {
+  isDrawing = true;
+  startX = e.offsetX;
+  startY = e.offsetY;
+  currentX = e.offsetX; // Initialize currentX/Y on mousedown
+  currentY = e.offsetY;
+});
+
+canvas.addEventListener("mousemove", (e) => {
+  if (!isDrawing) return;
+  currentX = e.offsetX;
+  currentY = e.offsetY;
+  redrawAll(); // Redraw everything including the temporary rectangle
+});
+
+canvas.addEventListener("mouseup", (e) => {
+  if (!isDrawing) return;
+  isDrawing = false;
+
+  const finalX = e.offsetX;
+  const finalY = e.offsetY;
+
+  const rectX = Math.min(startX, finalX);
+  const rectY = Math.min(startY, finalY);
+  const rectWidth = Math.abs(startX - finalX);
+  const rectHeight = Math.abs(startY - finalY);
+
+  if (rectWidth > 0 && rectHeight > 0) {
+    // Ensure Boundary class is accessible (imported at top)
+    const newBoundary = new Boundary(rectX, rectY, rectWidth, rectHeight);
+    collisions.boundaries.push(newBoundary);
+  }
+
+  // Redraw and recalculate path
+  redrawAll(); // Redraw with the new boundary added
+  recalculateAndDrawPath(); // Recalculate and draw path based on new boundaries
+});
+
+// Initial Draw
+redrawAll();
+recalculateAndDrawPath();
+
+document.querySelector<HTMLButtonElement>("#ClrBtn")!.onclick = () => {
+  collisions.boundaries = []; // Clear boundaries first
+  redrawAll(); // Redraw the cleared state (start/end points, no boundaries)
+  recalculateAndDrawPath(); // Recalculate and draw path for the cleared state
+};

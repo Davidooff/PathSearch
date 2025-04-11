@@ -1,6 +1,6 @@
-import { drawArc, drawLine } from "./main";
+import { drawArc, drawLine, redrawAll } from "./main";
 import { Path, PathTree } from "./tree";
-import { Vector2 } from "./vector2";
+// import { Vector2 } from "./vector2";
 
 export interface Point {
   x: number;
@@ -98,34 +98,34 @@ export class Boundary {
   static vectorsToEachVertice(startingPoint: Point, rec: Rectangle): Line[] {
     // console.log("Ding", startingPoint);
 
-    if (
-      (startingPoint.x === rec.p1.x || startingPoint.x === rec.p2.x) &&
-      rec.p1.y < startingPoint.y &&
-      startingPoint.y < rec.p2.y
-    ) {
-      console.log("Ding dong", [
-        { p1: startingPoint, p2: { x: startingPoint.x, y: rec.p1.y } },
-        { p1: startingPoint, p2: { x: startingPoint.x, y: rec.p2.y } },
-      ]);
-      return [
-        { p1: startingPoint, p2: { x: startingPoint.x, y: rec.p1.y } },
-        { p1: startingPoint, p2: { x: startingPoint.x, y: rec.p2.y } },
-      ];
-    }
-    if (
-      (startingPoint.y === rec.p1.y || startingPoint.y === rec.p2.y) &&
-      rec.p1.x < startingPoint.x &&
-      startingPoint.x < rec.p2.x
-    ) {
-      console.log("Ding dong", [
-        { p1: startingPoint, p2: { x: rec.p1.x, y: startingPoint.y } },
-        { p1: startingPoint, p2: { x: rec.p2.x, y: startingPoint.y } },
-      ]);
-      return [
-        { p1: startingPoint, p2: { x: rec.p1.x, y: startingPoint.y } },
-        { p1: startingPoint, p2: { x: rec.p2.x, y: startingPoint.y } },
-      ];
-    }
+    // if (
+    //   (startingPoint.x === rec.p1.x || startingPoint.x === rec.p2.x) &&
+    //   rec.p1.y < startingPoint.y &&
+    //   startingPoint.y < rec.p2.y
+    // ) {
+    //   console.log("Ding dong", [
+    //     { p1: startingPoint, p2: { x: startingPoint.x, y: rec.p1.y } },
+    //     { p1: startingPoint, p2: { x: startingPoint.x, y: rec.p2.y } },
+    //   ]);
+    //   return [
+    //     { p1: startingPoint, p2: { x: startingPoint.x, y: rec.p1.y } },
+    //     { p1: startingPoint, p2: { x: startingPoint.x, y: rec.p2.y } },
+    //   ];
+    // }
+    // if (
+    //   (startingPoint.y === rec.p1.y || startingPoint.y === rec.p2.y) &&
+    //   rec.p1.x < startingPoint.x &&
+    //   startingPoint.x < rec.p2.x
+    // ) {
+    //   console.log("Ding dong", [
+    //     { p1: startingPoint, p2: { x: rec.p1.x, y: startingPoint.y } },
+    //     { p1: startingPoint, p2: { x: rec.p2.x, y: startingPoint.y } },
+    //   ]);
+    //   return [
+    //     { p1: startingPoint, p2: { x: rec.p1.x, y: startingPoint.y } },
+    //     { p1: startingPoint, p2: { x: rec.p2.x, y: startingPoint.y } },
+    //   ];
+    // }
 
     return [
       { p1: startingPoint, p2: rec.p1 },
@@ -265,9 +265,9 @@ export class Collisions {
             b: collision,
             line: pathVector,
             p: collIntPoint,
-            len: Vector2.getLength(
-              collIntPoint.x - pathVector.p1.x,
-              collIntPoint.y - pathVector.p1.x
+            len: Math.sqrt(
+              (collIntPoint.x - pathVector.p1.x) ** 2 +
+                (collIntPoint.y - pathVector.p1.x) ** 2
             ),
           };
 
@@ -301,11 +301,32 @@ export class Collisions {
     return PathTree.isEqual(collision.line.p1, collision.p);
   }
 
-  static isComplit(pathVector: Line, obj: Boundary, inflate: Inflate): boolean {
-    return !(
-      Collisions.findCollisionsOnVector([obj], pathVector, inflate)?.length ===
-      2
-    );
+  /* This method return true if vector from vertice of obj pointing inside then it return true  */
+  static isComplit(vec: Line, obj: Boundary, inflate: Inflate): boolean {
+    const rect: Rectangle = obj.inflate(inflate.width, inflate.height);
+    const p1 = vec.p1;
+    const p2 = vec.p2;
+
+    // Check if p1 is the top-left vertex and p2 points inwards
+    if (p1.x === rect.p1.x && p1.y === rect.p1.y) {
+      return p2.x > rect.p1.x && p2.y > rect.p1.y;
+    }
+    // Check if p1 is the bottom-left vertex and p2 points inwards
+    if (p1.x === rect.p1.x && p1.y === rect.p2.y) {
+      return p2.x > rect.p1.x && p2.y < rect.p2.y;
+    }
+    // Check if p1 is the top-right vertex and p2 points inwards
+    if (p1.x === rect.p2.x && p1.y === rect.p1.y) {
+      return p2.x < rect.p2.x && p2.y > rect.p1.y;
+    }
+    // Check if p1 is the bottom-right vertex and p2 points inwards
+    if (p1.x === rect.p2.x && p1.y === rect.p2.y) {
+      return p2.x < rect.p2.x && p2.y < rect.p2.y;
+    }
+
+    // If p1 is not a vertex, the vector doesn't originate from a vertex,
+    // so it doesn't meet the condition described in the comment.
+    return false;
   }
 
   static getNextVertices(
@@ -406,33 +427,67 @@ export class Collisions {
     fullPathTree: PathTree,
     pathToContinue: number[]
   ): Path[] {
+    // console.log(
+    //   pathToContinue,
+    //   fullPathTree.findInsidePath(pathToContinue.slice(0, -1), {
+    //     p: pathVector.p1,
+    //   })
+    // );
+
+    if (
+      fullPathTree.findInsidePath(pathToContinue.slice(0, -1), {
+        p: pathVector.p1,
+      })
+    )
+      return [];
+
     const pathVectorCollisions = Collisions.findCollisionsOnVector(
       b,
       pathVector,
       inflate
     );
 
-    const pathVecCollsOnTheMiddle = pathVectorCollisions?.filter((el) =>
+    const pathVecCollsOnMiddle = pathVectorCollisions?.filter((el) =>
       Collisions.isCollInMiddle(el)
     );
 
-    if (!pathVecCollsOnTheMiddle || pathVecCollsOnTheMiddle.length === 0)
+    const pathVecCollsOnStart = pathVectorCollisions?.filter((el) =>
+      Collisions.isCollInStart(el)
+    );
+
+    if (pathVecCollsOnStart && pathVecCollsOnStart.length > 2) {
+      // console.log(pathVecCollsOnStart);
+      return [];
+    }
+
+    if (!pathVecCollsOnMiddle || pathVecCollsOnMiddle.length === 0)
       return [{ p: pathVector.p2, complit: true, next: null }];
 
-    pathVecCollsOnTheMiddle.sort((a, b) => a.len - b.len);
-    drawArc(pathVecCollsOnTheMiddle[0].p, "green", 20);
+    pathVecCollsOnMiddle.sort((a, b) => a.len - b.len);
+    drawArc(pathVecCollsOnMiddle[0].p, "green", 20);
 
-    let collidedObjs: Boundary[] = [pathVecCollsOnTheMiddle[0].b]; // Проверить на процесид обжектов
+    let collidedObjs: Boundary[] = [pathVecCollsOnMiddle[0].b]; // Проверить на процесид обжектов
     let resPath: Path[] = [];
     const allProcessedCollisions: Boundary[] = [];
     while (collidedObjs.length > 0) {
+      // console.log(pathVector.p1);
       const coll = collidedObjs.shift()!;
 
       const lineToEachVerti = Boundary.vectorsToEachVertice(
         pathVector.p1,
         coll.inflate(inflate.width, inflate.height)
       ).filter((line) => {
-        if (Collisions.isComplit(line, coll, inflate)) return false;
+        if (
+          pathVecCollsOnStart &&
+          pathVecCollsOnStart.length > 0 &&
+          Collisions.isComplit(line, pathVecCollsOnStart[0].b, inflate)
+        ) {
+          return false;
+        }
+
+        // If this point was already processed inside this path. We are returning false to not go in recursion
+        if (fullPathTree.findInsidePath(pathToContinue, { p: line.p2 }))
+          return false;
 
         const collOnTheLine = Collisions.findCollisionsOnVector(
           b,
@@ -446,24 +501,25 @@ export class Collisions {
         const collOnTheMiddle = collOnTheLine.filter(this.isCollInMiddle);
 
         if (collOnTheMiddle?.length === 0) {
-          // If this point was already processed inside this path. We are returning false to not go in recursion
-          if (fullPathTree.findInsidePath(pathToContinue, { p: line.p2 }))
-            return false;
           return true;
-        } else if (collOnTheMiddle) {
-          const collidedOnTheWay = collOnTheMiddle
-            .sort((a, b) => a.len - b.len)
-            .map((el) => el.b)[0];
+        } else if (collOnTheMiddle && collOnTheMiddle.length > 0) {
+          const collidedOnTheWay = collOnTheMiddle.sort(
+            (a, b) => a.len - b.len
+          )[0].b;
+
+          // console.log("Collision happend");
 
           if (
-            collidedOnTheWay &&
             !Collisions.isBounderyInsideArray(collidedOnTheWay, [
               ...allProcessedCollisions,
               ...collidedObjs,
               coll,
             ])
-          )
+          ) {
+            // console.log("Adding: ", collidedOnTheWay);
+
             collidedObjs.push(collidedOnTheWay);
+          }
           return false;
         } else {
           throw new Error("UnExpected");
@@ -474,7 +530,10 @@ export class Collisions {
         drawLine(line.p1, line.p2, "yellow");
       });
 
-      if (!lineToEachVerti.length) continue;
+      if (!lineToEachVerti.length) {
+        allProcessedCollisions.push(coll);
+        continue;
+      }
 
       const pathByRibs = Collisions.goByRibs(
         lineToEachVerti.map((line) => line.p2),
@@ -488,15 +547,145 @@ export class Collisions {
 
       collidedObjs = collidedObjs.concat(
         pathByRibs.collidedObjs.filter(
-          (el) =>
-            !filterOfB.some((filteOf) => Boundary.isSameBoundary(filteOf, el))
+          (el) => !Collisions.isBounderyInsideArray(el, filterOfB)
         )
       );
 
       resPath = resPath.concat(pathByRibs.path);
-      break;
+      allProcessedCollisions.push(coll);
     }
 
     return resPath;
+  }
+
+  static findAllWays(
+    pathVector: Line,
+    b: Boundary[],
+    inflate: Inflate
+  ): PathTree {
+    let tree = new PathTree(pathVector.p1);
+    // defining it hire for garbage collector will not realocate memory that much time
+    let pathToContinue: number[] | null = tree.findPathBy({
+      complit: false,
+    }) as number[];
+    let elToCountinue: Path;
+    do {
+      elToCountinue = tree.openPath(pathToContinue) as Path;
+
+      if (elToCountinue?.next === null) {
+        elToCountinue.complit = true;
+        continue;
+      }
+      drawLine(elToCountinue.p, pathVector.p2, "purple");
+
+      let processColRes = Collisions.processCollisions(
+        b,
+        { p1: elToCountinue.p, p2: pathVector.p2 },
+        inflate,
+        tree,
+        pathToContinue
+      );
+
+      if (elToCountinue && elToCountinue.next) {
+        elToCountinue.next = elToCountinue.next.concat(processColRes);
+      }
+
+      elToCountinue.complit = true;
+
+      pathToContinue = tree.findPathBy({ complit: false });
+    } while (pathToContinue);
+    return tree;
+  }
+
+  /**
+   * Optimizes the paths in the given PathTree by finding the shortest valid paths.
+   *
+   * @param tree - The PathTree containing all possible paths.
+   * @param pathVector - The initial line vector representing the start and end points.
+   * @param b - An array of Boundary objects to check for collisions.
+   * @param inflate - The dimensions used to inflate boundaries for collision detection.
+   * @returns An array of objects, where each object represents a path:
+   *          - `p`: An array of Points representing the path.
+   *          - `len`: The total length of the path.
+   */
+  static optimizeWays(
+    tree: PathTree,
+    pathVector: Line,
+    b: Boundary[],
+    inflate: Inflate
+  ): {
+    p: Point[];
+    len: number;
+  }[] {
+    const finalPath: {
+      p: Point[];
+      len: number;
+    }[] = [];
+    const lengthsSet = new Set<number>();
+
+    while (true) {
+      const pathToFinis = tree.findPathBy({ next: null });
+      if (!pathToFinis) break;
+
+      const localPath = { p: [pathVector.p1], len: 0 };
+      for (let i = 1; i < pathToFinis!.length; i++) {
+        const el = tree.openPath(pathToFinis!.slice(0, i) as number[]) as Path;
+        let nextEl: Path = tree.openPath(
+          pathToFinis!.slice(0, i + 1) as number[]
+        ) as Path;
+
+        for (let j = i + 1; j < pathToFinis.length; j++) {
+          const possiblyNext = tree.openPath(
+            pathToFinis.slice(0, j + 1) as number[]
+          ) as Path;
+          const coll = Collisions.findCollisionsOnVector(
+            b,
+            { p1: el.p, p2: possiblyNext.p },
+            inflate
+          );
+          if (!coll) {
+            nextEl = possiblyNext;
+            continue;
+          }
+          let collInStart: Boundary[] = [];
+          let collInEnd: Boundary[] = [];
+          let isCollInMiddle = false;
+          coll.sort((a, b) => a.len - b.len);
+          for (const collEl of coll) {
+            if (Collisions.isCollInMiddle(collEl)) {
+              isCollInMiddle = true;
+              break;
+            }
+            if (Collisions.isCollInStart(collEl)) {
+              collInStart.push(collEl.b);
+            } else {
+              collInEnd.push(collEl.b);
+            }
+          }
+          if (isCollInMiddle) break;
+
+          if (
+            collInStart.some((el) =>
+              Collisions.isBounderyInsideArray(el, collInEnd)
+            )
+          )
+            break;
+          nextEl = possiblyNext;
+        }
+
+        localPath.p.push(nextEl.p);
+        localPath.len += Math.sqrt(
+          (nextEl.p.x - el.p.x) ** 2 + (nextEl.p.y - el.p.y) ** 2
+        );
+      }
+      tree.openPath(pathToFinis)!.next = [];
+      if (lengthsSet.has(localPath.len)) continue;
+      lengthsSet.add(localPath.len);
+      finalPath.push(localPath);
+    }
+
+    finalPath.sort((a, b) => a.len - b.len);
+
+    return finalPath;
   }
 }
